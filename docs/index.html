@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>amazon-frontdesk — live simulator replay</title>
+<meta name="description" content="Static replay of the amazon-frontdesk Alexa+ simulator: an AI front-desk agent driven over MCP (Streamable HTTP) books a mobile detailing appointment in one conversation.">
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.5 system-ui, sans-serif; background: #0e1116; color: #e6e9ee; }
+  a { color: #6db3ff; }
+  a:focus-visible, button:focus-visible, summary:focus-visible {
+    outline: 2px solid #6db3ff; outline-offset: 2px; border-radius: 4px;
+  }
+
+  /* ---- site header ---- */
+  #sitebar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+             padding: 14px 20px; border-bottom: 1px solid #232a35; background: #11161f; }
+  #sitebar .brand { font-weight: 650; font-size: 15px; margin-right: auto; }
+  #sitebar .brand span { color: #7d8899; font-weight: 400; }
+  #sitebar nav { display: flex; gap: 8px; flex-wrap: wrap; }
+  #sitebar nav a { font-size: 13px; text-decoration: none; padding: 6px 12px;
+                   border: 1px solid #39414f; border-radius: 8px; color: #e6e9ee; }
+  #sitebar nav a:hover { background: #1c2330; }
+
+  .note { margin: 14px auto 0; max-width: 720px; padding: 10px 14px; font-size: 13px;
+          background: #141a24; border: 1px solid #232a35; border-left: 3px solid #f0a832;
+          border-radius: 6px; color: #c9d1e8; }
+  .note code { color: #6db3ff; }
+
+  /* ---- simulator look (mirrors amazon_frontdesk/simulator.py PAGE) ---- */
+  #sim header { max-width: 760px; margin: 14px auto 0; padding: 14px 20px;
+                border-bottom: 1px solid #232a35; display: flex; gap: 12px;
+                align-items: baseline; flex-wrap: wrap; }
+  #sim header h1 { font-size: 16px; margin: 0; }
+  #sim header .sub { color: #7d8899; font-size: 13px; }
+  #replay { margin-left: auto; background: #1f6feb; color: #fff; border: 0;
+            border-radius: 8px; padding: 6px 14px; cursor: pointer; font-size: 13px; }
+  #replay:hover { background: #3b82f6; }
+  #replay[disabled] { opacity: .55; cursor: default; }
+  #log { max-width: 760px; margin: 0 auto; padding: 20px; }
+  .turn { margin-bottom: 14px; }
+  .bubble { max-width: 85%; padding: 10px 14px; border-radius: 14px; white-space: pre-wrap; }
+  .user .bubble { margin-left: auto; background: #1f6feb; border-bottom-right-radius: 4px; }
+  .agent .bubble { background: #1c2330; border-bottom-left-radius: 4px; }
+  .who { font-size: 11px; color: #7d8899; margin: 0 4px 4px; }
+  .user .who { text-align: right; }
+  .tools { font: 12px/1.6 ui-monospace, monospace; color: #8fa3c8; background: #141a24;
+           border: 1px solid #232a35; border-radius: 8px; padding: 8px 12px;
+           margin: 0 auto 14px; max-width: 85%; }
+  .tools summary { cursor: pointer; color: #7d8899; }
+  .tools pre { white-space: pre-wrap; word-break: break-word; }
+  .booking { border: 1px solid #2ea043; background: #12261a; border-radius: 10px;
+             padding: 10px 14px; margin: 0 auto 14px; max-width: 85%; font-size: 14px; }
+  .booking b { color: #3fb950; }
+  .typing { color: #7d8899; font-style: italic; font-size: 13px; margin-bottom: 14px; }
+  form { max-width: 760px; margin: 0 auto; padding: 12px 20px 24px; display: flex; gap: 8px; }
+  input { flex: 1; background: #1c2330; border: 1px solid #39414f; border-radius: 8px;
+          color: #e6e9ee; padding: 10px 12px; font-size: 15px; }
+  input[disabled] { opacity: .6; }
+  .send { background: #1f6feb; color: #fff; border: 0; border-radius: 8px;
+          padding: 0 18px; cursor: pointer; }
+  .send[disabled] { opacity: .55; cursor: default; }
+
+  footer { max-width: 760px; margin: 0 auto; padding: 0 20px 32px;
+           color: #7d8899; font-size: 12.5px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { scroll-behavior: auto !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+  <div id="sitebar">
+    <div class="brand">amazon-frontdesk <span>— an Alexa+ front desk over MCP (Streamable HTTP)</span></div>
+    <nav aria-label="Project links">
+      <a href="https://github.com/ntoledo319/amazon-frontdesk">GitHub repo</a>
+      <a href="https://youtu.be/08UAEdkbmic">Demo video</a>
+      <a href="https://devpost.com/software/amazon-frontdesk">Devpost project</a>
+    </nav>
+  </div>
+
+  <p class="note">
+    <strong>Static replay of the live simulator</strong> — full agent code in the repo
+    (<code>python -m amazon_frontdesk.simulator --with-mcp</code>, then open
+    <code>http://127.0.0.1:8090/</code>). Every line below is verbatim output of the
+    real agent: same dialogue state machine, same MCP tool calls, captured from a
+    live run against the in-repo MCP server.
+  </p>
+
+  <div id="sim">
+    <header>
+      <h1>Alexa+ Simulator</h1>
+      <span class="sub">Toledo Shine Mobile Detailing · MCP: Streamable HTTP (static replay)</span>
+      <button id="replay" type="button">&#9654; Replay demo</button>
+    </header>
+    <div id="log" aria-live="polite" aria-label="Demo conversation"></div>
+    <form aria-hidden="true">
+      <input disabled placeholder="Static replay — press “Replay demo” to watch the scripted conversation"
+             aria-label="Input disabled in static replay">
+      <button class="send" type="button" disabled>Send</button>
+    </form>
+  </div>
+
+  <footer>
+    Amazon Developer Hackathon 2026 · Alexa+ track · Toledo Technologies LLC · MIT license
+  </footer>
+
+<script>
+"use strict";
+// Verbatim capture from a live run of `python -m amazon_frontdesk.simulator
+// --with-mcp` (MCP server in-process, Streamable HTTP, protocol 2025-03-26).
+// `calls` entries are the tool trace the simulator renders under each reply.
+const CONVERSATION_ID = "dd533e834423";
+const SCRIPT = [
+  { kind: "agent",
+    text: "Thanks for calling Toledo Shine Mobile Detailing, this is Riley. I can get you booked or get a quote started. May I have your name?",
+    calls: [{ tool: "frontdesk_answer",
+              arguments: { message: "", conversation_id: CONVERSATION_ID },
+              result: "reply='Thanks for calling Toledo Shine Mobile Detailing, this is Riley. I can get you booked or get a quote started. May I have your name?' done=False" }] },
+  { kind: "user", text: "Hi, this is Dana." },
+  { kind: "agent",
+    text: "Thanks Dana. What's the best phone number to reach you?",
+    calls: [{ tool: "frontdesk_answer",
+              arguments: { message: "Hi, this is Dana.", conversation_id: CONVERSATION_ID },
+              result: "reply=\"Thanks Dana. What's the best phone number to reach you?\" done=False" }] },
+  { kind: "user", text: "It's 206 555 0147." },
+  { kind: "agent",
+    text: "Got it. Which service are you interested in? We offer Full Interior Detail (from $120), Exterior Wash & Wax (from $80), Full Detail Package (from $180), Engine Bay Cleaning (from $60).",
+    calls: [{ tool: "frontdesk_answer",
+              arguments: { message: "It's 206 555 0147.", conversation_id: CONVERSATION_ID },
+              result: "reply='Got it. Which service are you interested in? We offer Full Interior Detail (from $120), Exterior Wash & Wax (from $80), Full Detail Package (from $180), Engine Bay Cleaning (from $60).' done=False" }] },
+  { kind: "user", text: "I need a full interior detail — the dog got hair all over the seats." },
+  { kind: "agent",
+    text: "What day works best for you?",
+    calls: [{ tool: "frontdesk_answer",
+              arguments: { message: "I need a full interior detail — the dog got hair all over the seats.", conversation_id: CONVERSATION_ID },
+              result: "reply='What day works best for you?' done=False" }] },
+  { kind: "user", text: "Does Saturday work?" },
+  { kind: "agent",
+    text: "And what time of day?",
+    calls: [{ tool: "frontdesk_answer",
+              arguments: { message: "Does Saturday work?", conversation_id: CONVERSATION_ID },
+              result: "reply='And what time of day?' done=False" }] },
+  { kind: "user", text: "10 in the morning, please." },
+  { kind: "agent",
+    text: "Let me confirm what I have. Name: Dana; Phone: (206) 555-0147; Service: Full Interior Detail; Date: 2026-10-10; Time: 10:00; Notes: I need a full interior detail — the dog got hair all over the seats.. Did I get everything right?",
+    calls: [{ tool: "frontdesk_answer",
+              arguments: { message: "10 in the morning, please.", conversation_id: CONVERSATION_ID },
+              result: "reply='Let me confirm what I have. Name: Dana; Phone: (206) 555-0147; Service: Full Interior Detail; Date: 2026-10-10; Time: 10:00; Notes: I need a full interior detail — the dog got hair all over the seats.. Did I get everything right?' done=False" }] },
+  { kind: "user", text: "Yes, that's right." },
+  { kind: "agent",
+    text: "You're all set, Dana. Toledo Shine Mobile Detailing will call (206) 555-0147 to confirm your Full Interior Detail on 2026-10-10 at 10:00. Thanks for calling!",
+    calls: [{ tool: "frontdesk_answer",
+              arguments: { message: "Yes, that's right.", conversation_id: CONVERSATION_ID },
+              result: "reply=\"You're all set, Dana. Toledo Shine Mobile Detailing will call (206) 555-0147 to confirm your Full Interior Detail on 2026-10-10 at 10:00. Thanks for calling!\" done=True booking=BK-0001" }],
+    booking: { booking_id: "BK-0001", name: "Dana", phone: "(206) 555-0147",
+               service: "Full Interior Detail", date: "2026-10-10", time: "10:00" } },
+];
+
+const log = document.getElementById("log");
+const replayBtn = document.getElementById("replay");
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+function add(cls, who, text) {
+  const turn = document.createElement("div"); turn.className = "turn " + cls;
+  const w = document.createElement("div"); w.className = "who"; w.textContent = who;
+  const b = document.createElement("div"); b.className = "bubble"; b.textContent = text;
+  turn.append(w, b); log.appendChild(turn);
+  return turn;
+}
+function addTools(calls) {
+  const d = document.createElement("details"); d.className = "tools";
+  const s = document.createElement("summary");
+  s.textContent = calls.length + " MCP tool call" + (calls.length === 1 ? "" : "s") + " (Streamable HTTP)";
+  d.appendChild(s);
+  for (const c of calls) {
+    const pre = document.createElement("pre");
+    pre.textContent = "→ " + c.tool + " " + JSON.stringify(c.arguments) + "\n" + c.result;
+    d.appendChild(pre);
+  }
+  log.appendChild(d);
+}
+function addBooking(b) {
+  const el = document.createElement("div"); el.className = "booking";
+  const head = document.createElement("b");
+  head.textContent = "✓ Booking confirmed " + b.booking_id;
+  el.appendChild(head);
+  el.appendChild(document.createElement("br"));
+  el.append(b.name + " — " + b.service, document.createElement("br"),
+            b.date + " at " + b.time);
+  if (b.phone) {
+    el.appendChild(document.createElement("br"));
+    el.append("Callback: " + b.phone);
+  }
+  log.appendChild(el);
+}
+function addTyping() {
+  const el = document.createElement("div");
+  el.className = "typing"; el.textContent = "Frontdesk is typing…";
+  log.appendChild(el);
+  return el;
+}
+function scrollDown() { window.scrollTo(0, document.body.scrollHeight); }
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function renderStep(step) {
+  if (step.kind === "user") {
+    add("user", "You (as Alexa+ caller)", step.text);
+  } else {
+    add("agent", "Frontdesk (via MCP)", step.text);
+    if (step.calls && step.calls.length) addTools(step.calls);
+    if (step.booking) addBooking(step.booking);
+  }
+}
+
+async function play() {
+  replayBtn.disabled = true;
+  log.innerHTML = "";
+  if (reduceMotion.matches) {
+    for (const step of SCRIPT) renderStep(step);
+    scrollDown();
+    replayBtn.disabled = false;
+    return;
+  }
+  for (const step of SCRIPT) {
+    if (step.kind === "user") {
+      renderStep(step);
+      scrollDown();
+      await sleep(650);
+    } else {
+      const typing = addTyping();
+      scrollDown();
+      await sleep(900);
+      typing.remove();
+      renderStep(step);
+      scrollDown();
+      await sleep(700);
+    }
+  }
+  replayBtn.disabled = false;
+}
+
+replayBtn.addEventListener("click", play);
+play();
+</script>
+</body>
+</html>
